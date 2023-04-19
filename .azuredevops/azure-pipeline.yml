@@ -1,0 +1,73 @@
+trigger:
+  - master
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildconfiguration: 'Release'
+
+stages:
+  - stage: Building
+    jobs:
+      - job: Build
+        steps:
+          - task: DotNetCoreCLI@2
+            displayName: 'Build Application'
+            inputs:
+              command: build
+              projects: '**/*.csproj'
+              arguments: '--configuration $(buildconfiguration) --output $(Build.ArtifactStagingDirectory)'
+
+  - stage: Testing
+    dependsOn:
+      - Building
+    jobs:
+      - job: Test
+        steps:
+          - task: DotNetCoreCLI@2
+            displayName: 'Run Tests'
+            inputs:
+              command: 'test'
+
+  - stage: Updating
+    dependsOn:
+      - Testing
+    jobs:
+      - job: Version
+        workspace:
+          clean: all
+        steps:
+          - checkout: self
+            fetchDepth: 0
+          - task: gitversion/setup@0
+            displayName: 'Install GiVersion'
+            inputs:
+              versionSpec: '5.x'
+          - task: gitversion/execute@0
+            displayName: 'Calculate new version'
+            inputs:
+              useConfigFile: true
+              configFilePath: './.azuredevops/gitversion.yml'
+          - bash: |
+              echo "##vso[task.setvariable variable=newVersion;isOutput=true]$(SemVer)"
+            name: gitVersion
+
+  - stage: Artifacts
+    dependsOn:
+      - Updating
+    jobs:
+      - job: PackageAndPublish
+        variables:
+          newVersion: $[stageDependencies.Updating.Version.outputs['gitVersion.newVersion']]
+        steps:
+          - script: dotnet pack /p:PackageVersion='$(newVersion)' --configuration $(buildConfiguration)  -o $(Build.ArtifactStagingDirectory)
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: push
+              packagesToPush: '$(Build.ArtifactStagingDirectory)/*.nupkg'
+              nuGetFeedType: 'internal'
+              feedPublish: 'Lab4Studies/StudiesLibs'
+
+
+

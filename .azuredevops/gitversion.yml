@@ -1,0 +1,17 @@
+mode: Mainline
+branches:
+  bugfix:
+    regex: ^bugfix(es)?[/-]
+    source-branches: ['main', 'master']
+    tag: bugfix-{BranchName}
+  feature:
+    regex: ^features?[/-]
+    source-branches: ['main', 'master']
+    tag: feature-{BranchName}
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    source-branches: ['main', 'master']
+    tag: hotfix-{BranchName}
+ignore:
+  sha: []
+merge-message-formats: {}
